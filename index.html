@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pile of Shame Tracker</title>
+<style>
+  :root {
+    --bg: #14121f;
+    --bg-soft: #1d1a2e;
+    --card: #242040;
+    --card-edge: #322c5a;
+    --accent: #a78bfa;
+    --accent-strong: #8b5cf6;
+    --teal: #2dd4bf;
+    --gold: #fbbf24;
+    --text: #ece8ff;
+    --muted: #9b93bf;
+    --danger: #f87171;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(1200px 600px at 80% -10%, #2c2450 0%, var(--bg) 55%);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    line-height: 1.5;
+    min-height: 100vh;
+    padding-bottom: 4rem;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 1.2rem; }
+  header h1 {
+    font-size: 1.7rem;
+    letter-spacing: 0.02em;
+    color: var(--accent);
+  }
+  header .tagline { color: var(--muted); font-size: 0.95rem; margin-top: 0.15rem; }
+  .stats-bar {
+    display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 1rem;
+  }
+  .stat {
+    background: var(--card); border: 1px solid var(--card-edge);
+    border-radius: var(--radius); padding: 0.55rem 0.9rem;
+    font-size: 0.85rem; color: var(--muted);
+  }
+  .stat b { color: var(--text); font-size: 1rem; display: block; }
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center;
+    margin: 1.2rem 0; padding: 0.9rem;
+    background: var(--bg-soft); border: 1px solid var(--card-edge);
+    border-radius: var(--radius);
+  }
+  .controls .label { font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+  button {
+    font: inherit; cursor: pointer; border: none; border-radius: 10px;
+    padding: 0.5rem 0.9rem; background: var(--card); color: var(--text);
+    border: 1px solid var(--card-edge); transition: background 0.15s, transform 0.05s;
+  }
+  button:hover { background: #2e2952; }
+  button:active { transform: scale(0.98); }
+  button.primary {
+    background: linear-gradient(135deg, var(--accent-strong), #6d28d9);
+    border-color: #7c3aed; font-weight: 600;
+  }
+  button.primary:hover { filter: brightness(1.12); }
+  button.chip { padding: 0.3rem 0.7rem; border-radius: 999px; font-size: 0.82rem; }
+  button.chip.on { background: var(--accent-strong); border-color: var(--accent-strong); color: #fff; }
+  button.quiet { background: transparent; color: var(--muted); border-color: transparent; }
+  button.quiet:hover { color: var(--text); background: #2e2952; }
+  button.danger { color: var(--danger); }
+  .playnext-panel {
+    display: none;
+    background: linear-gradient(135deg, #3b2d63, #2a2350);
+    border: 1px solid #6d28d9;
+    border-radius: var(--radius);
+    padding: 1rem 1.2rem;
+    margin-bottom: 1.2rem;
+  }
+  .playnext-panel.show { display: block; }
+  .playnext-panel h2 { font-size: 1.05rem; color: var(--accent); }
+  .playnext-panel .pick { font-size: 1.3rem; font-weight: 700; margin: 0.3rem 0; }
+  .playnext-panel button { margin-right: 0.4rem; margin-top: 0.5rem; }
+  section h2 {
+    font-size: 1.05rem; color: var(--accent); margin: 1.4rem 0 0.6rem;
+    letter-spacing: 0.02em;
+  }
+  #goals-bar { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+  .goal-chip {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    background: var(--card); border: 1px solid var(--card-edge);
+    border-radius: 999px; padding: 0.3rem 0.8rem; font-size: 0.85rem;
+  }
+  .goal-chip.done span { text-decoration: line-through; color: var(--muted); }
+  .goal-chip.done { border-color: var(--teal); }
+  .goal-chip button { padding: 0 0.3rem; background: none; border: none; color: var(--muted); }
+  .goal-chip button:hover { color: var(--danger); background: none; }
+  .goal-form, .add-form {
+    display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0;
+  }
+  input[type="text"], input[type="number"], input[type="date"], select {
+    font: inherit; color: var(--text); background: var(--bg-soft);
+    border: 1px solid var(--card-edge); border-radius: 10px; padding: 0.45rem 0.7rem;
+  }
+  input:focus, select:focus { outline: 2px solid var(--accent); }
+  #add-form {
+    background: var(--bg-soft); border: 1px solid var(--card-edge);
+    border-radius: var(--radius); padding: 0.9rem;
+    display: none; margin-bottom: 1rem;
+  }
+  #add-form.show, .goal-form.show { display: flex; }
+  .form-col { display: flex; flex-direction: column; gap: 0.15rem; }
+  .form-col label { font-size: 0.75rem; color: var(--muted); }
+  .tag-row { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
+  .games-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 0.9rem;
+  }
+  .game-card {
+    background: var(--card); border: 1px solid var(--card-edge);
+    border-radius: var(--radius); padding: 0.9rem 1rem; display: flex;
+    flex-direction: column; gap: 0.45rem;
+  }
+  .game-card.status-playing { border-color: var(--teal); }
+  .game-card.status-finished { border-color: var(--gold); opacity: 0.85; }
+  .game-card.status-quit { opacity: 0.65; }
+  .game-card h3 { font-size: 1.1rem; }
+  .card-row { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+  .badge {
+    font-size: 0.72rem; padding: 0.15rem 0.55rem; border-radius: 999px;
+    background: var(--bg-soft); border: 1px solid var(--card-edge); color: var(--muted);
+  }
+  .badge.tag-cozy { color: #86efac; }
+  .badge.tag-story { color: #f0abfc; }
+  .badge.tag-splash { color: #7dd3fc; }
+  .badge.status-backlog { color: var(--muted); }
+  .badge.status-playing { color: var(--teal); border-color: var(--teal); }
+  .badge.status-finished { color: var(--gold); border-color: var(--gold); }
+  .badge.status-quit { color: var(--danger); border-color: var(--danger); }
+  .card-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.3rem; }
+  .detail { border-top: 1px dashed var(--card-edge); margin-top: 0.3rem; padding-top: 0.5rem; }
+  .log-list { list-style: none; font-size: 0.85rem; color: var(--muted); margin: 0.4rem 0; }
+  .log-list li { display: flex; justify-content: space-between; gap: 0.6rem; padding: 0.15rem 0; }
+  .log-list .mins { color: var(--text); }
+  .hidden { display: none; }
+  footer {
+    margin-top: 2.5rem; color: var(--muted); font-size: 0.8rem;
+    text-align: center;
+  }
+  footer a { color: var(--accent); }
+  .toast {
+    position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%);
+    background: var(--accent-strong); color: #fff; padding: 0.5rem 1.1rem;
+    border-radius: 999px; font-size: 0.85rem; opacity: 0; pointer-events: none;
+    transition: opacity 0.3s; z-index: 10;
+  }
+  .toast.show { opacity: 1; }
+  @media (max-width: 640px) {
+    .games-grid { grid-template-columns: 1fr; }
+    header h1 { font-size: 1.4rem; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>The Pile of Shame Tracker</h1>
+    <p class="tagline">Your fun backlog, logged honestly. Local-first: everything stays in this browser.</p>
+    <div class="stats-bar" id="stats-bar"></div>
+  </header>
+
+  <div class="controls">
+    <span class="label">Tonight's energy</span>
+    <button class="chip" data-energy="low">Low</button>
+    <button class="chip" data-energy="medium">Medium</button>
+    <button class="chip" data-energy="high">High</button>
+    <button class="primary" id="btn-play-next">Play Next</button>
+    <button id="btn-add-game">+ Add Game</button>
+    <button id="btn-export-sessions">Export Sessions CSV</button>
+    <button id="btn-export-games">Export Games CSV</button>
+    <button class="quiet danger" id="btn-clear">Clear All Data</button>
+  </div>
+
+  <div class="playnext-panel" id="playnext-panel">
+    <h2>Play Next suggestion</h2>
+    <div class="pick" id="playnext-pick">—</div>
+    <div class="card-row" id="playnext-reason"></div>
+    <div class="card-actions">
+      <button id="btn-pick-again">Shuffle Again</button>
+      <button id="btn-pick-log">Log a Session</button>
+      <button class="quiet" id="btn-pick-dismiss">Dismiss</button>
+    </div>
+  </div>
+
+  <section id="goals-section">
+    <h2>Goal chips</h2>
+    <div id="goals-bar"></div>
+    <div class="goal-form" id="goal-form">
+      <input type="text" id="goal-input" placeholder="e.g. Finish one cozy game this month" maxlength="80">
+      <button id="btn-add-goal">Add Goal</button>
+      <button class="quiet" id="btn-cancel-goal">Cancel</button>
+    </div>
+    <button class="quiet" id="btn-show-goal-form">+ New goal</button>
+  </section>
+
+  <section id="add-form">
+    <div class="form-col">
+      <label for="in-title">Title</label>
+      <input type="text" id="in-title" placeholder="Game title" maxlength="80">
+    </div>
+    <div class="form-col">
+      <label for="in-platform">Platform</label>
+      <select id="in-platform">
+        <option>PC</option><option>Steam Deck</option><option>Switch</option>
+        <option>PlayStation</option><option>Xbox</option><option>Mobile</option><option>Other</option>
+      </select>
+    </div>
+    <div class="form-col">
+      <label for="in-estimate">Session estimate (min)</label>
+      <input type="number" id="in-estimate" min="5" max="600" value="45" step="5">
+    </div>
+    <div class="form-col">
+      <label>Mood tags</label>
+      <div class="tag-row">
+        <button class="chip on" data-tag="cozy">cozy</button>
+        <button class="chip on" data-tag="story">story</button>
+        <button class="chip on" data-tag="splash">splash</button>
+      </div>
+    </div>
+    <div class="form-col" style="justify-content:flex-end">
+      <label>&nbsp;</label>
+      <button class="primary" id="btn-save-game">Save Game</button>
+    </div>
+  </div>
+
+  <section>
+    <h2>Backlog <span class="badge" id="filter-count"></span></h2>
+    <div class="controls" style="margin:0.4rem 0;">
+      <span class="label">Show</span>
+      <button class="chip on" data-filter="all">All</button>
+      <button class="chip" data-filter="backlog">Backlog</button>
+      <button class="chip" data-filter="playing">Playing</button>
+      <button class="chip" data-filter="finished">Finished</button>
+      <button class="chip" data-filter="quit">Quit</button>
+      <button class="chip" data-tagfilter="cozy">cozy</button>
+      <button class="chip" data-tagfilter="story">story</button>
+      <button class="chip" data-tagfilter="splash">splash</button>
+    </div>
+    <div class="games-grid" id="games-grid"></div>
+    <p id="empty-note" style="color:var(--muted)">No games yet. Add one up there, brave pile-grower.</p>
+  </section>
+
+  <footer>
+    Built with plain HTML/JS/CSS, zero dependencies. All data stored in localStorage on this device.<br>
+    A fun extra from <strong>Asdale Dynamics, LLC</strong> - MIT licensed, no tracking, no accounts, no nonsense.
+  </footer>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+
+var ENERGY_LIMITS = { low: 45, medium: 90, high: 100000 };
+var VALID_STATUSES = ["backlog", "playing", "finished", "quit"];
+var ACTIVE_STATUSES = ["backlog", "playing"];
+
+function makeRng(seed) {
+  var s = typeof seed === "number" ? seed >>> 0 : 0;
+  return function () {
+    if (seed === undefined) {
+      s = (s + 0x6D2B79F5) | 0;
+    } else {
+      s = (s + 0x9E3779B9) | 0;
+    }
+    var t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function eligibleForEnergy(game, energy) {
+  if (ACTIVE_STATUSES.indexOf(game.status) === -1) return false;
+  return game.sessionEstimate <= ENERGY_LIMITS[energy];
+}
+
+function pickNextGame(games, energy, lastSuggestionId, rng) {
+  var r = rng || makeRng();
+  var candidates = games.filter(function (g) { return eligibleForEnergy(g, energy); });
+  var fallbackReason = "";
+  if (candidates.length === 0) {
+    var pool = games.filter(function (g) { return ACTIVE_STATUSES.indexOf(g.status) !== -1; });
+    if (pool.length === 0) return null;
+    candidates = pool;
+    fallbackReason = energy === "low"
+      ? "Nothing short tonight, so this is your gentlest long picks."
+      : "Broadening the pool a little.";
+  }
+  var alternatives = candidates.filter(function (g) { return g.id !== lastSuggestionId; });
+  var pool = alternatives.length > 0 ? alternatives : candidates;
+  var weights = pool.map(function (g) {
+    var w = 1;
+    if (energy === "low") {
+      if (g.tags && g.tags.indexOf("cozy") !== -1) w += 2;
+      if (g.tags && g.tags.indexOf("story") !== -1) w -= 0.5;
+      w += Math.max(0, (ENERGY_LIMITS[energy] - g.sessionEstimate) / ENERGY_LIMITS[energy]) * 1.5;
+    }
+    if (energy === "high" && g.tags && g.tags.indexOf("story") !== -1) w += 0.5;
+    if (g.status === "playing") w += 0.5;
+    return Math.max(w, 0.01);
+  });
+  var total = weights.reduce(function (a, b) { return a + b; }, 0);
+  var roll = r() * total;
+  var pick = pool[pool.length - 1];
+  for (var i = 0; i < pool.length; i++) {
+    roll -= weights[i];
+    if (roll <= 0) { pick = pool[i]; break; }
+  }
+  return { game: pick, reason: fallbackReason || reasonForPick(pick, energy) };
+}
+
+function reasonForPick(game, energy) {
+  var bits = [];
+  if (energy === "low") bits.push("low energy friendly");
+  if (game.tags && game.tags.indexOf("cozy") !== -1) bits.push("cozy");
+  if (game.tags && game.tags.indexOf("splash") !== -1) bits.push("quick splash");
+  if (game.tags && game.tags.indexOf("story") !== -1) bits.push("story time");
+  bits.push("~" + game.sessionEstimate + " min sessions");
+  return bits.join(" - ");
+}
+
+function computeTotals(sessions, games) {
+  var totals = { totalMinutes: 0, sessionCount: 0, perGame: {} };
+  var i, s;
+  for (i = 0; i < sessions.length; i++) {
+    s = sessions[i];
+    totals.totalMinutes += s.minutes;
+    totals.sessionCount += 1;
+    if (!totals.perGame[s.gameId]) {
+      totals.perGame[s.gameId] = { minutes: 0, count: 0 };
+    }
+    totals.perGame[s.gameId].minutes += s.minutes;
+    totals.perGame[s.gameId].count += 1;
+  }
+  if (games) {
+    totals.gamesPlayed = {};
+    for (i = 0; i < games.length; i++) {
+      var gid = games[i].id;
+      if (totals.perGame[gid]) totals.gamesPlayed[gid] = totals.perGame[gid].minutes;
+    }
+  }
+  return totals;
+}
+
+function csvEscape(value) {
+  var str = String(value === undefined || value === null ? "" : value);
+  if (/[",\n\r]/.test(str)) {
+    return '"' + str.replace(/"/g, '""') + '"';
+  }
+  return str;
+}
+
+
+function toCsv(headers, rows) {
+  var lines = [headers.map(csvEscape).join(",")];
+  for (var i = 0; i < rows.length; i++) {
+    lines.push(rows[i].map(csvEscape).join(","));
+  }
+  return lines.join("\r\n") + "\r\n";
+}
+
+function saveState(state) {
+  if (typeof localStorage === "undefined") return false;
+  try {
+    localStorage.setItem("pileOfShame.v1", JSON.stringify(state));
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function loadState() {
+  if (typeof localStorage === "undefined") return null;
+  try {
+    var raw = localStorage.getItem("pileOfShame.v1");
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (e) {
+    return null;
+  }
+}
+
+function defaultState() {
+  return { games: [], sessions: [], goals: [], energy: "medium", nextId: 1 };
+}
+
+function parseCsvNumber(raw) {
+  var n = parseInt(raw, 10);
+  if (isNaN(n) || n <= 0) return null;
+  return n;
+}
+
+var __APP_API__ = {
+  ENERGY_LIMITS: ENERGY_LIMITS,
+  ACTIVE_STATUSES: ACTIVE_STATUSES,
+  VALID_STATUSES: VALID_STATUSES,
+  makeRng: makeRng,
+  eligibleForEnergy: eligibleForEnergy,
+  pickNextGame: pickNextGame,
+  computeTotals: computeTotals,
+  csvEscape: csvEscape,
+  toCsv: toCsv,
+  saveState: saveState,
+  loadState: loadState,
+  defaultState: defaultState,
+  parseCsvNumber: parseCsvNumber
+};
+if (typeof globalThis !== "undefined") { globalThis.__APP_API__ = __APP_API__; }
+
+
+if (typeof document !== "undefined" && document.getElementById) {
+  var state = loadState() || defaultState();
+  var lastSuggestionId = null;
+  var filter = { status: "all", tag: null };
+
+  function uid(prefix) { return prefix + "-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 7); }
+
+  function persist() { if (!saveState(state)) toast("Could not save locally - storage may be full or blocked."); }
+
+  function toast(msg) {
+    var t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(function () { t.classList.remove("show"); }, 2200);
+  }
+
+  function fmtTotal(minutes) {
+    var h = Math.floor(minutes / 60);
+    var m = minutes % 60;
+    return h > 0 ? h + "h " + m + "m" : m + "m";
+  }
+
+  function gameById(id) {
+    for (var i = 0; i < state.games.length; i++) {
+      if (state.games[i].id === id) return state.games[i];
+    }
+    return null;
+  }
+
+  function render() {
+    renderStats();
+    renderEnergy();
+    renderGoals();
+    renderGames();
+  }
+
+  function renderStats() {
+    var totals = computeTotals(state.sessions, state.games);
+    var finished = state.games.filter(function (g) { return g.status === "finished"; }).length;
+    var quit = state.games.filter(function (g) { return g.status === "quit"; }).length;
+    var backlog = state.games.filter(function (g) { return g.status === "backlog" || g.status === "playing"; }).length;
+    document.getElementById("stats-bar").innerHTML =
+      '<div class="stat"><b>' + fmtTotal(totals.totalMinutes) + '</b>time played</div>' +
+      '<div class="stat"><b>' + totals.sessionCount + '</b>sessions</div>' +
+      '<div class="stat"><b>' + backlog + '</b>in the pile</div>' +
+      '<div class="stat"><b>' + finished + '</b>finished</div>' +
+      '<div class="stat"><b>' + quit + '</b>honestly quit</div>';
+  }
+
+  function renderEnergy() {
+    var chips = document.querySelectorAll("[data-energy]");
+    for (var i = 0; i < chips.length; i++) {
+      chips[i].classList.toggle("on", chips[i].getAttribute("data-energy") === state.energy);
+    }
+  }
+
+  function renderGoals() {
+    var bar = document.getElementById("goals-bar");
+    bar.innerHTML = "";
+    state.goals.forEach(function (goal) {
+      var chip = document.createElement("span");
+      chip.className = "goal-chip" + (goal.done ? " done" : "");
+      var dot = document.createElement("button");
+      dot.textContent = goal.done ? "[x]" : "[ ]";
+      dot.title = "Toggle done";
+      dot.addEventListener("click", function () {
+        goal.done = !goal.done;
+        persist(); renderGoals();
+      });
+      var label = document.createElement("span");
+      label.textContent = goal.text;
+      var del = document.createElement("button");
+      del.textContent = "x";
+      del.title = "Remove goal";
+      del.addEventListener("click", function () {
+        state.goals = state.goals.filter(function (g) { return g.id !== goal.id; });
+        persist(); renderGoals();
+      });
+      chip.appendChild(dot); chip.appendChild(label); chip.appendChild(del);
+      bar.appendChild(chip);
+    });
+  }
+
+  function visibleGames() {
+    return state.games.filter(function (g) {
+      if (filter.status !== "all" && g.status !== filter.status) return false;
+      if (filter.tag && (g.tags || []).indexOf(filter.tag) === -1) return false;
+      return true;
+    });
+  }
+
+  function renderGames() {
+    var grid = document.getElementById("games-grid");
+    var list = visibleGames();
+    grid.innerHTML = "";
+    document.getElementById("empty-note").classList.toggle("hidden", state.games.length > 0);
+    document.getElementById("filter-count").textContent = list.length + " shown";
+    list.forEach(function (game) {
+      grid.appendChild(buildCard(game));
+    });
+  }
+
+  function buildCard(game) {
+    var card = document.createElement("div");
+    card.className = "game-card status-" + game.status;
+
+    var title = document.createElement("h3");
+    title.textContent = game.title;
+
+    var row = document.createElement("div");
+    row.className = "card-row";
+    row.innerHTML =
+      '<span class="badge">' + game.platform + '</span>' +
+      '<span class="badge">~' + game.sessionEstimate + ' min</span>';
+    (game.tags || []).forEach(function (t) {
+      var b = document.createElement("span");
+      b.className = "badge tag-" + t;
+      b.textContent = t;
+      row.appendChild(b);
+    });
+    var statusBadge = document.createElement("span");
+    statusBadge.className = "badge status-" + game.status;
+    statusBadge.textContent = game.status;
+    row.appendChild(statusBadge);
+
+    var totalsG = computeTotals(state.sessions);
+    var gt = totalsG.perGame[game.id];
+    var played = document.createElement("div");
+    played.style.color = "var(--muted)";
+    played.style.fontSize = "0.82rem";
+    played.textContent = gt
+      ? "Logged: " + gt.count + " sessions - " + fmtTotal(gt.minutes) + " total"
+      : "No sessions logged yet.";
+
+    var actions = document.createElement("div");
+    actions.className = "card-actions";
+    var btnLog = mkBtn("Log Session", "primary", function () { openLogForm(card, game); });
+    var btnCycle = mkBtn(nextStatusLabel(game), "chip", function () {
+      advanceStatus(game);
+    });
+    var btnQuit = mkBtn("Honestly Quit", "chip danger", function () {
+      if (game.status === "quit") return;
+      game.status = "quit";
+      persist(); render();
+      toast("Honest quitting counts. That is the whole point.");
+    });
+    var btnDel = mkBtn("Delete", "quiet danger", function () {
+      if (!confirm("Delete '" + game.title + "' and its session log?")) return;
+      state.games = state.games.filter(function (g) { return g.id !== game.id; });
+      state.sessions = state.sessions.filter(function (s) { return s.gameId !== game.id; });
+      persist(); render();
+    });
+    actions.appendChild(btnLog); actions.appendChild(btnCycle);
+    if (game.status !== "quit" && game.status !== "finished") actions.appendChild(btnQuit);
+    actions.appendChild(btnDel);
+
+    var detail = document.createElement("div");
+    detail.className = "detail hidden";
+    var ul = document.createElement("ul");
+    ul.className = "log-list";
+    detail.appendChild(ul);
+    card.appendChild(title); card.appendChild(row); card.appendChild(played);
+    card.appendChild(actions); card.appendChild(detail);
+    renderLogInto(ul, detail, game);
+
+    function renderLogInto(ul, detail, game) {
+      var logs = state.sessions.filter(function (s) { return s.gameId === game.id; })
+        .sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
+      ul.innerHTML = "";
+      if (logs.length === 0) {
+        ul.innerHTML = '<li>No sessions yet.</li>';
+      }
+      logs.forEach(function (s) {
+        var li = document.createElement("li");
+        var left = document.createElement("span");
+        left.textContent = s.note ? s.date + " - " + s.note : s.date;
+        var right = document.createElement("span");
+        right.className = "mins";
+        right.textContent = s.minutes + " min";
+        li.appendChild(left); li.appendChild(right);
+        ul.appendChild(li);
+      });
+    }
+
+    return card;
+  }
+
+  function mkBtn(text, cls, onClick) {
+    var b = document.createElement("button");
+    b.className = cls;
+    b.textContent = text;
+    b.addEventListener("click", onClick);
+    return b;
+  }
+
+  function nextStatusLabel(game) {
+    if (game.status === "backlog") return "Start Playing";
+    if (game.status === "playing") return "Mark Finished";
+    return "Back to Backlog";
+  }
+
+  function advanceStatus(game) {
+    if (game.status === "backlog") { game.status = "playing"; toast("Now playing. Enjoy."); }
+    else if (game.status === "playing") { game.status = "finished"; toast("Finished. It counts on the pile of victories."); }
+    else { game.status = "backlog"; }
+    persist(); render();
+  }
+
+  function openLogForm(card, game) {
+    if (card.querySelector(".log-form")) return;
+    var detail = card.querySelector(".detail");
+    detail.classList.remove("hidden");
+    var form = document.createElement("div");
+    form.className = "log-form";
+    var date = document.createElement("input");
+    date.type = "date"; date.value = todayStr();
+    var mins = document.createElement("input");
+    mins.type = "number"; mins.placeholder = "minutes"; mins.min = "1"; mins.max = "720"; mins.value = game.sessionEstimate;
+    var note = document.createElement("input");
+    note.type = "text"; note.placeholder = "note (optional)"; note.maxLength = "60";
+    var add = mkBtn("Add", "primary", function () {
+      var minutes = parseCsvNumber(mins.value);
+      if (!minutes) { toast("Enter a minute count."); return; }
+      state.sessions.push({
+        id: uid("s"), gameId: game.id,
+        date: date.value || todayStr(),
+        minutes: minutes, note: note.value.trim()
+      });
+      if (game.status === "backlog") game.status = "playing";
+      persist(); render();
+      toast("Session logged: " + minutes + " min. Nice.");
+    });
+    var close = mkBtn("x", "quiet", function () { form.remove(); detail.classList.add("hidden"); });
+    form.appendChild(date); form.appendChild(mins); form.appendChild(note);
+    form.appendChild(add); form.appendChild(close);
+    detail.insertBefore(form, detail.firstChild);
+  }
+
+  function todayStr() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll("[data-energy]"), function (chip) {
+    chip.addEventListener("click", function () {
+      state.energy = chip.getAttribute("data-energy");
+      persist(); renderEnergy();
+    });
+  });
+
+  document.getElementById("btn-play-next").addEventListener("click", showPlayNext);
+  document.getElementById("btn-pick-again").addEventListener("click", showPlayNext);
+  document.getElementById("btn-pick-dismiss").addEventListener("click", function () {
+    document.getElementById("playnext-panel").classList.remove("show");
+    lastSuggestionId = null;
+  });
+  document.getElementById("btn-pick-log").addEventListener("click", function () {
+    var g = gameById(lastSuggestionId);
+    if (!g) return;
+    document.getElementById("playnext-panel").classList.remove("show");
+    scrollAndOpen(g);
+  });
+
+  function scrollAndOpen(g) {
+    filter.status = "all"; filter.tag = null;
+    syncFilterChips(); renderGames();
+    setTimeout(function () {
+      var grid = document.getElementById("games-grid").children;
+      for (var i = 0; i < grid.length; i++) {
+        var card = grid[i];
+        if (card.querySelector("h3").textContent === g.title) {
+          card.scrollIntoView({ behavior: "smooth", block: "center" });
+          openLogForm(card, g);
+          return;
+        }
+      }
+    }, 50);
+  }
+
+  function showPlayNext() {
+    var result = pickNextGame(state.games, state.energy, lastSuggestionId);
+    var panel = document.getElementById("playnext-panel");
+    if (!result) {
+      document.getElementById("playnext-pick").textContent = "No games in the pile yet.";
+      document.getElementById("playnext-reason").innerHTML = "";
+      panel.classList.add("show");
+      return;
+    }
+    lastSuggestionId = result.game.id;
+    document.getElementById("playnext-pick").textContent = result.game.title + " (" + result.game.platform + ")";
+    var reason = document.createElement("span");
+    reason.className = "badge";
+    reason.textContent = result.reason;
+    var wrapR = document.getElementById("playnext-reason");
+    wrapR.innerHTML = "";
+    wrapR.appendChild(reason);
+    panel.classList.add("show");
+  }
+
+  document.getElementById("btn-add-game").addEventListener("click", function () {
+    document.getElementById("add-form").classList.toggle("show");
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll("#add-form .chip[data-tag]"), function (chip) {
+    chip.addEventListener("click", function () { chip.classList.toggle("on"); });
+  });
+
+  document.getElementById("btn-save-game").addEventListener("click", function () {
+    var title = document.getElementById("in-title").value.trim();
+    if (!title) { toast("Give it a title."); return; }
+    var estimate = parseCsvNumber(document.getElementById("in-estimate").value) || 45;
+    var tags = [];
+    Array.prototype.forEach.call(document.querySelectorAll("#add-form .chip[data-tag].on"), function (chip) {
+      tags.push(chip.getAttribute("data-tag"));
+    });
+    state.games.push({
+      id: uid("g"), title: title,
+      platform: document.getElementById("in-platform").value,
+      sessionEstimate: estimate,
+      tags: tags, status: "backlog"
+    });
+    document.getElementById("in-title").value = "";
+    document.getElementById("add-form").classList.remove("show");
+    persist(); render();
+    toast("Added to the pile. The pile grows.");
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll("[data-filter]"), function (chip) {
+    chip.addEventListener("click", function () {
+      filter.status = chip.getAttribute("data-filter");
+      syncFilterChips(); renderGames();
+    });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("[data-tagfilter]"), function (chip) {
+    chip.addEventListener("click", function () {
+      var t = chip.getAttribute("data-tagfilter");
+      filter.tag = filter.tag === t ? null : t;
+      Array.prototype.forEach.call(document.querySelectorAll("[data-tagfilter]"), function (c) {
+        c.classList.toggle("on", c.getAttribute("data-tagfilter") === filter.tag);
+      });
+      renderGames();
+    });
+  });
+
+  function syncFilterChips() {
+    Array.prototype.forEach.call(document.querySelectorAll("[data-filter]"), function (c) {
+      c.classList.toggle("on", c.getAttribute("data-filter") === filter.status);
+    });
+  }
+
+  document.getElementById("btn-show-goal-form").addEventListener("click", function () {
+    document.getElementById("goal-form").classList.toggle("show");
+    document.getElementById("goal-input").focus();
+  });
+  document.getElementById("btn-cancel-goal").addEventListener("click", function () {
+    document.getElementById("goal-form").classList.remove("show");
+  });
+  function addGoal() {
+    var input = document.getElementById("goal-input");
+    var text = input.value.trim();
+    if (!text) return;
+    state.goals.push({ id: uid("goal"), text: text, done: false });
+    input.value = "";
+    document.getElementById("goal-form").classList.remove("show");
+    persist(); renderGoals();
+  }
+  document.getElementById("btn-add-goal").addEventListener("click", addGoal);
+  document.getElementById("goal-input").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") addGoal();
+  });
+
+  function download(name, text) {
+    var blob = new Blob([text], { type: "text/csv;charset=utf-8" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+  }
+
+  document.getElementById("btn-export-sessions").addEventListener("click", function () {
+    var rows = state.sessions.map(function (s) {
+      var g = gameById(s.gameId);
+      return [s.date, g ? g.title : "(deleted)", g ? g.platform : "", s.minutes, s.note || ""];
+    });
+    download("pile-of-shame-sessions.csv", toCsv(["date", "game", "platform", "minutes", "note"], rows));
+    toast("Sessions CSV downloaded.");
+  });
+
+  document.getElementById("btn-export-games").addEventListener("click", function () {
+    var totals = computeTotals(state.sessions);
+    var rows = state.games.map(function (g) {
+      var t = totals.perGame[g.id];
+      return [g.title, g.platform, g.sessionEstimate, (g.tags || []).join("; "), g.status, t ? t.minutes : 0, t ? t.count : 0];
+    });
+    download("pile-of-shame-games.csv", toCsv(["title", "platform", "session_estimate_min", "tags", "status", "minutes_logged", "sessions_logged"], rows));
+    toast("Games CSV downloaded.");
+  });
+
+  document.getElementById("btn-clear").addEventListener("click", function () {
+    if (!confirm("Erase ALL games, sessions and goals from this browser?")) return;
+    state = defaultState();
+    persist(); render();
+    toast("Fresh pile. Clean slate.");
+  });
+
+  render();
+}
+</script>
+</body>
+</html>

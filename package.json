@@ -1,0 +1,10 @@
+{
+  "name": "pile-of-shame-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Offline game backlog tracker with energy-aware play-next shuffle and honest session logging. Zero dependencies.",
+  "license": "MIT",
+  "scripts": {
+    "test": "node tests/run-tests.mjs"
+  }
+}
